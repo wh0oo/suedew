@@ -1,9 +1,8 @@
-# Fabric Example Mod
+# suedew (sudo)
 
-## Setup
 
-For setup instructions please see the [fabric documentation page](https://docs.fabricmc.net/develop/getting-started/setting-up-a-development-environment) that relates to the IDE that you are using.
 
+Suedew is a Fabric mod that lets Minecraft server admins execute commands as another player, or use elevated permissions (think sudo in Linux). Use it to test permissions, trigger commands, or send messages.
 ## License
 
-This template is available under the CC0 license. Feel free to learn from it and incorporate it in your own projects.
+This template is available under the MIT license.
