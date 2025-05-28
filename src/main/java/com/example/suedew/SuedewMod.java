@@ -7,7 +7,7 @@ public class SuedewMod implements ModInitializer {
     @Override
     public void onInitialize() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
-            SudoCommand.register(dispatcher);
+            SudoCommand2.register(dispatcher);
         });
     }
 }
