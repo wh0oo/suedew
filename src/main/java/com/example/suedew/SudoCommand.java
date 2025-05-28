@@ -16,7 +16,7 @@ import net.minecraft.text.Text;
 public class SudoCommand {
     public static void register(CommandDispatcher<ServerCommandSource> dispatcher) {
         dispatcher.register(literal("sudo")
-            .requires(source -> source.hasPermissionLevel(2)) // Only ops level 2+
+            .requires(source -> source.hasPermissionLevel(2))
             .then(argument("player", StringArgumentType.word())
                 .then(literal("chat")
                     .then(argument("message", MessageArgumentType.message())
