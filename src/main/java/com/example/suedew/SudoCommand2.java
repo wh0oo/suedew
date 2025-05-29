@@ -31,8 +31,8 @@ public class SudoCommand2 {
                                     return 0;
                                 }
 
-                                String message = MessageArgumentType.getMessage(context, "message").getContent();
-                                target.sendMessage(Text.of(message));
+                                Text message = MessageArgumentType.getMessage(context, "message").content();
+                                target.sendMessage(message);
                                 return 1;
                             })
                         )
