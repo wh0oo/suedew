@@ -24,15 +24,17 @@ public class SudoCommand2 {
         dispatcher.register(
             literal("sudo")
                 .requires(source -> source.hasPermissionLevel(4))
-                .then(argument("target", EntityArgumentType.player())
-                    .then(argument("command", StringArgumentType.greedyString())
+                .then(
+                    argument("target", EntityArgumentType.player())
+                    .then(
+                        argument("command", StringArgumentType.greedyString())
                         .executes(context -> executeSudo(
                             context,
                             EntityArgumentType.getPlayer(context, "target"),
                             StringArgumentType.getString(context, "command")
                         ))
-                    )
-                );
+                )
+        );
     }
 
     private static int executeSudo(CommandContext<ServerCommandSource> context, ServerPlayerEntity target, String command) throws CommandSyntaxException {
