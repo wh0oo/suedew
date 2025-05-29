@@ -5,6 +5,8 @@ import static net.minecraft.server.command.CommandManager.literal;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
 import net.minecraft.command.argument.MessageArgumentType;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.command.ServerCommandSource;
@@ -13,25 +15,39 @@ import net.minecraft.text.Text;
 
 public class SudoCommand2 {
     public static void register(CommandDispatcher<ServerCommandSource> dispatcher) {
-        dispatcher.register(
-            literal("sudo")
-                .requires(source -> source.hasPermissionLevel(2))
-                .then(argument("player", StringArgumentType.word())
-                    .then(literal("chat")
-                        .then(argument("message", MessageArgumentType.message())
-                            .executes(context -> {
-                                String targetName = StringArgumentType.getString(context, "player");
-                                MinecraftServer server = context.getSource().getServer();
-                                ServerPlayerEntity target = server.getPlayerManager().getPlayer(targetName);
+        dispatcher.register(literal("sudo")
+            .requires(source -> source.hasPermissionLevel(2))
+            .then(argument("player", StringArgumentType.word())
+                .then(literal("chat")
+                    .then(argument("message", MessageArgumentType.message())
+                        .executes(context -> {
+                            String targetName = StringArgumentType.getString(context, "player");
+                            MinecraftServer server = context.getSource().getServer();
+                            ServerPlayerEntity target = server.getPlayerManager().getPlayer(targetName);
 
-                                if (target == null) {
-                                    context.getSource().sendError(Text.of("Targeted player not found."));
-                                    return 0;
-                                }
+                            if (target == null) {
+                                context.getSource().sendError(Text.of("Targeted player not found."));
+                                return 0;
+                            }
 
-                                Text message = MessageArgumentType.getMessage(context, "message");
-                                server.getPlayerManager().broadcast(message, target, net.minecraft.network.message.MessageType.SYSTEM);
-                                return 1;
-                            })))));
+                            Text message = MessageArgumentType.getMessage(context, "message");
+                            target.sendMessage(message);
+                            return 1;
+                        }))))
+                .then(literal("command")
+                    .redirect(dispatcher.getRoot(), context -> {
+                        String targetName = StringArgumentType.getString(context, "player");
+                        MinecraftServer server = context.getSource().getServer();
+                        ServerPlayerEntity target = server.getPlayerManager().getPlayer(targetName);
+
+                        if (target == null) {
+                            Text error = Text.of("Targeted player not found.");
+                            throw new CommandSyntaxException(
+                                new SimpleCommandExceptionType(error), error
+                            );
+                        }
+
+                        return target.getCommandSource();
+                    }))));
     }
 }
