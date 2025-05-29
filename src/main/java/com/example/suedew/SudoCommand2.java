@@ -1,12 +1,11 @@
 package com.example.suedew;
 
 import com.mojang.brigadier.CommandDispatcher;
-import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
-import net.minecraft.command.CommandSource;
 import net.minecraft.command.argument.EntityArgumentType;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
@@ -23,7 +22,7 @@ public class SudoCommand2 {
     public static void register(CommandDispatcher<ServerCommandSource> dispatcher) {
         dispatcher.register(
             literal("sudo")
-                .requires(source -> source.hasPermissionLevel(4)) // Higher permission level like Rug
+                .requires(source -> source.hasPermissionLevel(4))
                 .then(argument("target", EntityArgumentType.player())
                     .then(argument("command", StringArgumentType.greedyString())
                         .executes(context -> executeSudo(
@@ -31,7 +30,6 @@ public class SudoCommand2 {
                             EntityArgumentType.getPlayer(context, "target"),
                             StringArgumentType.getString(context, "command")
                         ))
-                    )
                 )
         );
     }
@@ -47,7 +45,7 @@ public class SudoCommand2 {
         // Format and send the command
         String formattedCommand = command.startsWith("/") ? command.substring(1) : command;
         server.getCommandManager().executeWithPrefix(
-            target.getCommandSource().withLevel(4), // Inherit permission level
+            target.getCommandSource().withLevel(4),
             formattedCommand
         );
 
