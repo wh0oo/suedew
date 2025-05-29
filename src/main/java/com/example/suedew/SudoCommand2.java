@@ -15,6 +15,8 @@ import net.minecraft.text.Text;
 
 public class SudoCommand2 {
     public static void register(CommandDispatcher<ServerCommandSource> dispatcher) {
+        System.out.println("[Suedew] Registering /sudo command");
+
         dispatcher.register(literal("sudo")
             .requires(source -> source.hasPermissionLevel(2))
             .then(argument("player", StringArgumentType.word())
@@ -33,7 +35,7 @@ public class SudoCommand2 {
                             Text message = MessageArgumentType.getMessage(context, "message");
                             target.sendMessage(message);
                             return 1;
-                        })))
+                        }))))
                 .then(literal("command")
                     .redirect(dispatcher.getRoot(), context -> {
                         String targetName = StringArgumentType.getString(context, "player");
