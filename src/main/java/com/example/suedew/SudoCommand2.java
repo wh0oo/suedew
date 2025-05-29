@@ -24,16 +24,13 @@ public class SudoCommand2 {
         dispatcher.register(
             literal("sudo")
                 .requires(source -> source.hasPermissionLevel(4))
-                .then(
-                    argument("target", EntityArgumentType.player())
-                    .then(
-                        argument("command", StringArgumentType.greedyString())
-                        .executes(context -> executeSudo(
-                            context,
-                            EntityArgumentType.getPlayer(context, "target"),
-                            StringArgumentType.getString(context, "command")
-                        ))
-                )
+                .then(argument("target", EntityArgumentType.player())
+                    .then(argument("command", StringArgumentType.greedyString())
+                        .executes(context -> {
+                            ServerPlayerEntity target = EntityArgumentType.getPlayer(context, "target");
+                            String command = StringArgumentType.getString(context, "command");
+                            return executeSudo(context, target, command);
+                        })
         );
     }
 
