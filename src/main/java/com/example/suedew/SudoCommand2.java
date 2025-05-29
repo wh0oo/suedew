@@ -1,6 +1,7 @@
 package com.example.suedew;
 
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
@@ -30,8 +31,8 @@ public class SudoCommand2 {
                             EntityArgumentType.getPlayer(context, "target"),
                             StringArgumentType.getString(context, "command")
                         ))
-                )
-        );
+                    )
+                );
     }
 
     private static int executeSudo(CommandContext<ServerCommandSource> context, ServerPlayerEntity target, String command) throws CommandSyntaxException {
