@@ -8,13 +8,12 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
 import net.minecraft.command.argument.MessageArgumentType;
-import net.minecraft.network.message.MessageType;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 
-public class SudoCommand {
+public class SudoCommand2 {
     public static void register(CommandDispatcher<ServerCommandSource> dispatcher) {
         dispatcher.register(
             literal("sudo")
@@ -32,17 +31,12 @@ public class SudoCommand {
                                     return 0;
                                 }
 
-                                // This is the Rug-style use of getSignedMessage
-                                MessageArgumentType.getSignedMessage(context, "message", signedMessage -> {
-                                    server.getPlayerManager().broadcast(
-                                        signedMessage,
-                                        target,
-                                        MessageType.params(MessageType.CHAT, context.getSource())
-                                    );
-                                });
-
+                                String message = MessageArgumentType.getMessage(context, "message").getContent();
+                                target.sendMessage(Text.of(message));
                                 return 1;
-                            }))))
+                            })
+                        )
+                    )
                     .then(literal("command")
                         .redirect(dispatcher.getRoot(), context -> {
                             String targetName = StringArgumentType.getString(context, "player");
@@ -51,13 +45,12 @@ public class SudoCommand {
 
                             if (target == null) {
                                 Text error = Text.of("Targeted player not found.");
-                                throw new CommandSyntaxException(
-                                    new SimpleCommandExceptionType(error), error
-                                );
+                                throw new CommandSyntaxException(new SimpleCommandExceptionType(error), error);
                             }
 
                             return target.getCommandSource();
-                        }))
+                        })
+                    )
                 )
         );
     }
