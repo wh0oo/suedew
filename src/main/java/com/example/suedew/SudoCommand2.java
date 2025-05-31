@@ -2,7 +2,7 @@ package com.example.suedew;
 
 import static net.minecraft.server.command.CommandManager.argument;
 import static net.minecraft.server.command.CommandManager.literal;
-import static net.minecraft.server.command.CommandSource.suggestMatching;
+import static net.minecraft.server.command.CommandManager.suggestMatching;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.Message;
@@ -42,15 +42,13 @@ public class SudoCommand2 {
                                 return 0;
                             }
 
-                            // Get the raw Text
-                            Text msg = MessageArgumentType.getMessage(ctx, "message");
+                            Message signedMsg = MessageArgumentType.getSignedMessage(ctx, "message", m -> m);
                             PlayerManager pm = server.getPlayerManager();
 
-                            // Broadcast as if 'target' sent it
                             pm.broadcast(
-                                msg,
-                                /* except= */ null,
-                                MessageType.params(MessageType.CHAT, target.getCommandSource())
+                                signedMsg,
+                                target,
+                                MessageType.params(MessageType.CHAT, src)
                             );
                             return 1;
                         })
