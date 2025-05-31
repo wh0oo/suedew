@@ -39,10 +39,12 @@ public class SudoCommand2 {
                             }
 
                             PlayerManager pm = server.getPlayerManager();
+                            // This line now explicitly calls the (SignedMessage, ServerPlayerEntity, Parameters) overload,
+                            // using 'target' as the "except" parameter so the target does not receive its own chat packet.
                             MessageArgumentType.getSignedMessage(ctx, "message", signedMsg -> {
                                 pm.broadcast(
                                     signedMsg,
-                                    /* except= */ null,
+                                    /* except = */ target,
                                     MessageType.params(MessageType.CHAT, target.getCommandSource())
                                 );
                             });
