@@ -2,10 +2,8 @@ package com.example.suedew;
 
 import static net.minecraft.server.command.CommandManager.argument;
 import static net.minecraft.server.command.CommandManager.literal;
-import static net.minecraft.server.command.CommandManager.suggestMatching;
 
 import com.mojang.brigadier.CommandDispatcher;
-import com.mojang.brigadier.Message;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
@@ -17,8 +15,6 @@ import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 
-import java.util.Collection;
-
 public class SudoCommand2 {
     private static final SimpleCommandExceptionType PLAYER_NOT_FOUND =
         new SimpleCommandExceptionType(Text.literal("Targeted player could not be found"));
@@ -27,38 +23,36 @@ public class SudoCommand2 {
         LiteralArgumentBuilder<ServerCommandSource> cmd = literal("sudo")
             .requires(src -> src.hasPermissionLevel(2))
             .then(argument("player", StringArgumentType.word())
-                .suggests((ctx, builder) ->
-                    suggestMatching(getPlayers(ctx.getSource()), builder)
-                )
                 .then(literal("chat")
                     .then(argument("message", MessageArgumentType.message())
                         .executes(ctx -> {
                             ServerCommandSource src = ctx.getSource();
                             MinecraftServer server = src.getServer();
-                            String name = StringArgumentType.getString(ctx, "player");
-                            ServerPlayerEntity target = server.getPlayerManager().getPlayer(name);
+                            String targetName = StringArgumentType.getString(ctx, "player");
+                            ServerPlayerEntity target = server.getPlayerManager().getPlayer(targetName);
+
                             if (target == null) {
                                 src.sendError(Text.literal("Targeted player could not be found"));
                                 return 0;
                             }
 
-                            Message signedMsg = MessageArgumentType.getSignedMessage(ctx, "message", m -> m);
                             PlayerManager pm = server.getPlayerManager();
-
-                            pm.broadcast(
-                                signedMsg,
-                                target,
-                                MessageType.params(MessageType.CHAT, src)
-                            );
+                            MessageArgumentType.getSignedMessage(ctx, "message", signedMsg -> {
+                                pm.broadcast(
+                                    signedMsg,
+                                    target,
+                                    MessageType.params(MessageType.CHAT, src)
+                                );
+                            });
                             return 1;
                         })
                     )
                 )
                 .then(literal("command")
                     .redirect(dispatcher.getRoot(), ctx -> {
-                        String name = StringArgumentType.getString(ctx, "player");
+                        String targetName = StringArgumentType.getString(ctx, "player");
                         MinecraftServer server = ctx.getSource().getServer();
-                        ServerPlayerEntity target = server.getPlayerManager().getPlayer(name);
+                        ServerPlayerEntity target = server.getPlayerManager().getPlayer(targetName);
                         if (target == null) throw PLAYER_NOT_FOUND.create();
                         return target.getCommandSource();
                     })
@@ -66,9 +60,5 @@ public class SudoCommand2 {
             );
 
         dispatcher.register(cmd);
-    }
-
-    private static Collection<String> getPlayers(ServerCommandSource src) {
-        return src.getPlayerNames();
     }
 }
