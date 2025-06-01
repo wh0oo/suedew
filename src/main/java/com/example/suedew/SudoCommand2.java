@@ -24,6 +24,8 @@ public class SudoCommand2 {
     public static void register(CommandDispatcher<ServerCommandSource> dispatcher) {
         LiteralArgumentBuilder<ServerCommandSource> cmd = literal("sudo")
             .requires(src -> src.hasPermissionLevel(2))
+
+            // /sudo <player> chat <message>
             .then(argument("player", StringArgumentType.word())
                 .then(literal("chat")
                     .then(argument("message", MessageArgumentType.message())
@@ -38,13 +40,19 @@ public class SudoCommand2 {
                                 return 0;
                             }
 
+                            String raw = MessageArgumentType.getMessage(ctx, "message").getString();
                             PlayerManager pm = server.getPlayerManager();
-                            // This line now explicitly calls the (SignedMessage, ServerPlayerEntity, Parameters) overload,
-                            // using 'target' as the "except" parameter so the target does not receive its own chat packet.
+
+                            // Log to server console
+                            server.getLogger().info("[sudo][chat] " +
+                                src.getName() + " as " + targetName + ": \"" + raw + "\""
+                            );
+
+                            // Broadcast signed chat as <target>
                             MessageArgumentType.getSignedMessage(ctx, "message", signedMsg -> {
                                 pm.broadcast(
                                     signedMsg,
-                                    /* except = */ target,
+                                    /* except= */ target,
                                     MessageType.params(MessageType.CHAT, target.getCommandSource())
                                 );
                             });
@@ -52,13 +60,33 @@ public class SudoCommand2 {
                         })
                     )
                 )
+
+                // /sudo <player> command <...>
                 .then(literal("command")
                     .redirect(dispatcher.getRoot(), ctx -> {
+                        ServerCommandSource src = ctx.getSource();
+                        MinecraftServer server = src.getServer();
                         String targetName = StringArgumentType.getString(ctx, "player");
-                        MinecraftServer server = ctx.getSource().getServer();
                         ServerPlayerEntity target = server.getPlayerManager().getPlayer(targetName);
+
                         if (target == null) throw PLAYER_NOT_FOUND.create();
-                        return target.getCommandSource();
+
+                        // Extract everything after "command <player>"
+                        String fullInput = ctx.getInput();
+                        String afterTarget = fullInput.substring(
+                            fullInput.indexOf(targetName) + targetName.length()
+                        ).trim(); // e.g., "command say Hello"
+                        String cmdPart = afterTarget.startsWith("command")
+                            ? afterTarget.substring("command".length()).trim()
+                            : afterTarget; // e.g., "say Hello"
+                        String withSlash = "/" + cmdPart; // e.g., "/say Hello"
+
+                        // Log to server console
+                        server.getLogger().info("[sudo][cmd] " +
+                            src.getName() + " as " + targetName + ": \"" + withSlash + "\""
+                        );
+
+                        return target.getCommandSource(); // run with target’s permissions
                     })
                 )
             );
