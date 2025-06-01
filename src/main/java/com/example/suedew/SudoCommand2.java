@@ -14,12 +14,15 @@ import net.minecraft.server.PlayerManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.Collection;
 
 public class SudoCommand2 {
     private static final SimpleCommandExceptionType PLAYER_NOT_FOUND =
         new SimpleCommandExceptionType(Text.literal("Targeted player could not be found"));
+    private static final Logger LOGGER = LogManager.getLogger("Suedew");
 
     public static void register(CommandDispatcher<ServerCommandSource> dispatcher) {
         LiteralArgumentBuilder<ServerCommandSource> cmd = literal("sudo")
@@ -43,10 +46,9 @@ public class SudoCommand2 {
                             String raw = MessageArgumentType.getMessage(ctx, "message").getString();
                             PlayerManager pm = server.getPlayerManager();
 
-                            // Log to server console
-                            server.getLogger().info("[sudo][chat] " +
-                                src.getName() + " as " + targetName + ": \"" + raw + "\""
-                            );
+                            // Log to server console via Logger
+                            LOGGER.info("[sudo][chat] " + src.getName() + " as " +
+                                        targetName + ": \"" + raw + "\"");
 
                             // Broadcast signed chat as <target>
                             MessageArgumentType.getSignedMessage(ctx, "message", signedMsg -> {
@@ -78,13 +80,12 @@ public class SudoCommand2 {
                         ).trim(); // e.g., "command say Hello"
                         String cmdPart = afterTarget.startsWith("command")
                             ? afterTarget.substring("command".length()).trim()
-                            : afterTarget; // e.g., "say Hello"
+                            : afterTarget;     // e.g., "say Hello"
                         String withSlash = "/" + cmdPart; // e.g., "/say Hello"
 
-                        // Log to server console
-                        server.getLogger().info("[sudo][cmd] " +
-                            src.getName() + " as " + targetName + ": \"" + withSlash + "\""
-                        );
+                        // Log to server console via Logger
+                        LOGGER.info("[sudo][cmd] " + src.getName() + " as " +
+                                    targetName + ": \"" + withSlash + "\"");
 
                         return target.getCommandSource(); // run with target’s permissions
                     })
