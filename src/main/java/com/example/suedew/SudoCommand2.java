@@ -1,60 +1,66 @@
 package com.example.suedew;
 
-import static net.minecraft.server.command.CommandManager.argument;
-import static net.minecraft.server.command.CommandManager.literal;
+import static net.minecraft.commands.Commands.argument;
+import static net.minecraft.commands.Commands.literal;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
-import net.minecraft.command.argument.MessageArgumentType;
-import net.minecraft.network.message.MessageType;
+
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.arguments.MessageArgument;
+import net.minecraft.network.chat.ChatType;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.PlayerManager;
-import net.minecraft.server.command.ServerCommandSource;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.players.PlayerList;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
 
 public class SudoCommand2 {
+
     private static final SimpleCommandExceptionType PLAYER_NOT_FOUND =
-        new SimpleCommandExceptionType(Text.literal("Targeted player could not be found"));
+        new SimpleCommandExceptionType(Component.literal("Targeted player could not be found"));
+
     private static final Logger LOGGER = LoggerFactory.getLogger("Suedew");
 
-    public static void register(CommandDispatcher<ServerCommandSource> dispatcher) {
-        LiteralArgumentBuilder<ServerCommandSource> cmd = literal("sudo")
+    public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
+
+        LiteralArgumentBuilder<CommandSourceStack> cmd = literal("sudo")
             .requires(src -> src.hasPermissionLevel(2))
 
             // /sudo <player> chat <message>
             .then(argument("player", StringArgumentType.word())
                 .then(literal("chat")
-                    .then(argument("message", MessageArgumentType.message())
+                    .then(argument("message", MessageArgument.message())
                         .executes(ctx -> {
-                            ServerCommandSource src = ctx.getSource();
+                            CommandSourceStack src = ctx.getSource();
                             MinecraftServer server = src.getServer();
                             String targetName = StringArgumentType.getString(ctx, "player");
-                            ServerPlayerEntity target = server.getPlayerManager().getPlayer(targetName);
+                            ServerPlayer target = server.getPlayerList().getPlayerByName(targetName);
 
                             if (target == null) {
-                                src.sendError(Text.literal("Targeted player could not be found"));
+                                src.sendFailure(Component.literal("Targeted player could not be found"));
                                 return 0;
                             }
 
-                            String raw = MessageArgumentType.getMessage(ctx, "message").getString();
-                            PlayerManager pm = server.getPlayerManager();
+                            String raw = MessageArgument.getMessage(ctx, "message").getString();
+                            PlayerList pm = server.getPlayerList();
 
-                            LOGGER.info("[sudo][chat] {} as {}: \"{}\"", src.getName(), targetName, raw);
+                            LOGGER.info("[sudo][chat] {} as {}: \"{}\"", src.getTextName(), targetName, raw);
 
-                            MessageArgumentType.getSignedMessage(ctx, "message", signedMsg -> {
-                                pm.broadcast(
+                            MessageArgument.resolveChatMessage(ctx, "message", signedMsg -> {
+                                pm.broadcastChatMessage(
                                     signedMsg,
                                     target,
-                                    MessageType.params(MessageType.CHAT, target.getCommandSource())
+                                    ChatType.bind(ChatType.CHAT, target)
                                 );
                             });
+
                             return 1;
                         })
                     )
@@ -63,10 +69,10 @@ public class SudoCommand2 {
                 // /sudo <player> command <...>
                 .then(literal("command")
                     .redirect(dispatcher.getRoot(), ctx -> {
-                        ServerCommandSource src = ctx.getSource();
+                        CommandSourceStack src = ctx.getSource();
                         MinecraftServer server = src.getServer();
                         String targetName = StringArgumentType.getString(ctx, "player");
-                        ServerPlayerEntity target = server.getPlayerManager().getPlayer(targetName);
+                        ServerPlayer target = server.getPlayerList().getPlayerByName(targetName);
 
                         if (target == null) throw PLAYER_NOT_FOUND.create();
 
@@ -77,11 +83,12 @@ public class SudoCommand2 {
                         String cmdPart = afterTarget.startsWith("command")
                             ? afterTarget.substring("command".length()).trim()
                             : afterTarget;
+
                         String withSlash = "/" + cmdPart;
 
-                        LOGGER.info("[sudo][cmd] {} as {}: \"{}\"", src.getName(), targetName, withSlash);
+                        LOGGER.info("[sudo][cmd] {} as {}: \"{}\"", src.getTextName(), targetName, withSlash);
 
-                        return target.getCommandSource();
+                        return target.createCommandSourceStack();
                     })
                 )
             );
@@ -89,7 +96,7 @@ public class SudoCommand2 {
         dispatcher.register(cmd);
     }
 
-    private static Collection<String> getPlayers(ServerCommandSource src) {
-        return src.getPlayerNames();
+    private static Collection<String> getPlayers(CommandSourceStack src) {
+        return src.getServer().getPlayerList().getPlayerNames();
     }
 }
