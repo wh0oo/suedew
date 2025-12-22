@@ -2,11 +2,14 @@ package com.example.suedew;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
-import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.commands.Commands;
-import net.minecraft.network.chat.Component;
+import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
+
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.command.CommandManager;
+import net.minecraft.server.command.ServerCommandSource;
+import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.text.Text;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -14,49 +17,44 @@ public class SudoCommand {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("Suedew");
 
-    public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
+    private static final SimpleCommandExceptionType PLAYER_NOT_FOUND =
+            new SimpleCommandExceptionType(Text.literal("Targeted player could not be found"));
+
+    public static void register(CommandDispatcher<ServerCommandSource> dispatcher) {
         dispatcher.register(
-            Commands.literal("suedew")
-                .requires(source -> source.hasPermission(2))
+            CommandManager.literal("suedew")
+                .requires(source -> source.hasPermissionLevel(2))
                 .then(
-                    Commands.argument("player", StringArgumentType.word())
+                    CommandManager.argument("player", StringArgumentType.word())
                         .then(
-                            Commands.argument("command", StringArgumentType.greedyString())
-                                .executes(context -> {
-                                    CommandSourceStack source = context.getSource();
+                            CommandManager.argument("command", StringArgumentType.greedyString())
+                                .executes(ctx -> {
+                                    ServerCommandSource source = ctx.getSource();
                                     MinecraftServer server = source.getServer();
 
-                                    String playerName =
-                                        StringArgumentType.getString(context, "player");
-                                    String rawCommand =
-                                        StringArgumentType.getString(context, "command");
+                                    String targetName = StringArgumentType.getString(ctx, "player");
+                                    String command = StringArgumentType.getString(ctx, "command");
 
-                                    ServerPlayer target =
-                                        server.getPlayerList().getPlayerByName(playerName);
+                                    ServerPlayerEntity target =
+                                            server.getPlayerManager().getPlayer(targetName);
 
                                     if (target == null) {
-                                        source.sendFailure(
-                                            Component.literal("Player not found: " + playerName)
-                                        );
-                                        return 0;
+                                        throw PLAYER_NOT_FOUND.create();
                                     }
 
-                                    // Strip leading slash if present
-                                    String commandToRun = rawCommand.startsWith("/")
-                                        ? rawCommand.substring(1)
-                                        : rawCommand;
+                                    String fullCommand = "/" + command;
 
                                     LOGGER.info(
-                                        "[suedew] {} executing as {}: /{}",
-                                        source.getTextName(),
-                                        target.getGameProfile().getName(),
-                                        commandToRun
+                                        "[suedew] {} executed as {}: {}",
+                                        source.getName(),
+                                        target.getName().getString(),
+                                        fullCommand
                                     );
 
-                                    // Execute as the target player
-                                    server.getCommands().performPrefixedCommand(
-                                        target.createCommandSourceStack(),
-                                        commandToRun
+                                    // Execute the command as the target player
+                                    server.getCommandManager().executeWithPrefix(
+                                        target.getCommandSource(),
+                                        command
                                     );
 
                                     return 1;
