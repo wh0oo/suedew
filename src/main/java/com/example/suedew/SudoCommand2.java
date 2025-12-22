@@ -1,102 +1,68 @@
 package com.example.suedew;
 
-import static net.minecraft.commands.Commands.argument;
-import static net.minecraft.commands.Commands.literal;
-
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
-import com.mojang.brigadier.builder.LiteralArgumentBuilder;
-import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
-
 import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.commands.arguments.MessageArgument;
-import net.minecraft.network.chat.ChatType;
+import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.server.players.PlayerList;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Collection;
-
-public class SudoCommand2 {
-
-    private static final SimpleCommandExceptionType PLAYER_NOT_FOUND =
-        new SimpleCommandExceptionType(Component.literal("Targeted player could not be found"));
+public class SudoCommand {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("Suedew");
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
+        dispatcher.register(
+            Commands.literal("suedew")
+                .requires(source -> source.hasPermission(2))
+                .then(
+                    Commands.argument("player", StringArgumentType.word())
+                        .then(
+                            Commands.argument("command", StringArgumentType.greedyString())
+                                .executes(context -> {
+                                    CommandSourceStack source = context.getSource();
+                                    MinecraftServer server = source.getServer();
 
-        LiteralArgumentBuilder<CommandSourceStack> cmd = literal("sudo")
-            .requires(src -> src.hasPermissionLevel(2))
+                                    String playerName =
+                                        StringArgumentType.getString(context, "player");
+                                    String rawCommand =
+                                        StringArgumentType.getString(context, "command");
 
-            // /sudo <player> chat <message>
-            .then(argument("player", StringArgumentType.word())
-                .then(literal("chat")
-                    .then(argument("message", MessageArgument.message())
-                        .executes(ctx -> {
-                            CommandSourceStack src = ctx.getSource();
-                            MinecraftServer server = src.getServer();
-                            String targetName = StringArgumentType.getString(ctx, "player");
-                            ServerPlayer target = server.getPlayerList().getPlayerByName(targetName);
+                                    ServerPlayer target =
+                                        server.getPlayerList().getPlayerByName(playerName);
 
-                            if (target == null) {
-                                src.sendFailure(Component.literal("Targeted player could not be found"));
-                                return 0;
-                            }
+                                    if (target == null) {
+                                        source.sendFailure(
+                                            Component.literal("Player not found: " + playerName)
+                                        );
+                                        return 0;
+                                    }
 
-                            String raw = MessageArgument.getMessage(ctx, "message").getString();
-                            PlayerList pm = server.getPlayerList();
+                                    // Strip leading slash if present
+                                    String commandToRun = rawCommand.startsWith("/")
+                                        ? rawCommand.substring(1)
+                                        : rawCommand;
 
-                            LOGGER.info("[sudo][chat] {} as {}: \"{}\"", src.getTextName(), targetName, raw);
+                                    LOGGER.info(
+                                        "[suedew] {} executing as {}: /{}",
+                                        source.getTextName(),
+                                        target.getGameProfile().getName(),
+                                        commandToRun
+                                    );
 
-                            MessageArgument.resolveChatMessage(ctx, "message", signedMsg -> {
-                                pm.broadcastChatMessage(
-                                    signedMsg,
-                                    target,
-                                    ChatType.bind(ChatType.CHAT, target)
-                                );
-                            });
+                                    // Execute as the target player
+                                    server.getCommands().performPrefixedCommand(
+                                        target.createCommandSourceStack(),
+                                        commandToRun
+                                    );
 
-                            return 1;
-                        })
-                    )
+                                    return 1;
+                                })
+                        )
                 )
-
-                // /sudo <player> command <...>
-                .then(literal("command")
-                    .redirect(dispatcher.getRoot(), ctx -> {
-                        CommandSourceStack src = ctx.getSource();
-                        MinecraftServer server = src.getServer();
-                        String targetName = StringArgumentType.getString(ctx, "player");
-                        ServerPlayer target = server.getPlayerList().getPlayerByName(targetName);
-
-                        if (target == null) throw PLAYER_NOT_FOUND.create();
-
-                        String fullInput = ctx.getInput();
-                        String afterTarget = fullInput.substring(
-                            fullInput.indexOf(targetName) + targetName.length()
-                        ).trim();
-                        String cmdPart = afterTarget.startsWith("command")
-                            ? afterTarget.substring("command".length()).trim()
-                            : afterTarget;
-
-                        String withSlash = "/" + cmdPart;
-
-                        LOGGER.info("[sudo][cmd] {} as {}: \"{}\"", src.getTextName(), targetName, withSlash);
-
-                        return target.createCommandSourceStack();
-                    })
-                )
-            );
-
-        dispatcher.register(cmd);
-    }
-
-    private static Collection<String> getPlayers(CommandSourceStack src) {
-        return src.getServer().getPlayerList().getPlayerNames();
+        );
     }
 }
