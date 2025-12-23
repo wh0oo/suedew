@@ -16,7 +16,7 @@ public class SudoCommand {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(
-            Commands.literal("suedew")
+            Commands.literal("sudo")
                 // ops only, hidden from non-ops (Fortune pattern)
                 .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
                 .then(
