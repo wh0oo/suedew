@@ -1,5 +1,6 @@
 package com.example.suedew;
 
+import com.mojang.authlib.GameProfile;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
@@ -13,95 +14,85 @@ import net.minecraft.server.players.PlayerList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Collection;
+
 public class SudoCommand {
     private static final Logger LOGGER = LoggerFactory.getLogger("Suedew");
+
     private static final SimpleCommandExceptionType PLAYER_NOT_FOUND =
         new SimpleCommandExceptionType(Component.literal("Targeted player could not be found"));
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         LiteralArgumentBuilder<CommandSourceStack> root = Commands.literal("sudo")
-            // Same pattern you used in /fortune reload
+            // same pattern you used in fortune: ops / gamemasters only
             .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
 
             // /sudo <player> chat <message>
-            .then(
-                Commands.argument("player", StringArgumentType.word())
-                    .then(
-                        Commands.literal("chat")
-                            .then(
-                                Commands.argument("message", StringArgumentType.greedyString())
-                                    .executes(ctx -> {
-                                        CommandSourceStack src = ctx.getSource();
-                                        MinecraftServer server = src.getServer();
-                                        PlayerList playerList = server.getPlayerList();
+            .then(Commands.argument("player", StringArgumentType.word())
+                .then(Commands.literal("chat")
+                    .then(Commands.argument("message", StringArgumentType.greedyString())
+                        .executes(ctx -> {
+                            CommandSourceStack src = ctx.getSource();
+                            MinecraftServer server = src.getServer();
+                            PlayerList playerList = server.getPlayerList();
 
-                                        String targetName = StringArgumentType.getString(ctx, "player");
-                                        ServerPlayer target = playerList.getPlayerByName(targetName);
-                                        if (target == null) {
-                                            src.sendFailure(Component.literal("Targeted player could not be found"));
-                                            return 0;
-                                        }
+                            String targetName = StringArgumentType.getString(ctx, "player");
+                            ServerPlayer target = playerList.getPlayerByName(targetName);
+                            if (target == null) {
+                                throw PLAYER_NOT_FOUND.create();
+                            }
 
-                                        String message = StringArgumentType.getString(ctx, "message");
+                            String message = StringArgumentType.getString(ctx, "message");
+                            GameProfile profile = target.getGameProfile();
+                            String displayName = profile.getName(); // Mojang username
 
-                                        LOGGER.info(
-                                            "[sudo][chat] {} as {}: \"{}\"",
-                                            src.getTextName(),
-                                            targetName,
-                                            message
-                                        );
+                            // Make it *look* like normal player chat: <name> message
+                            Component display = Component.literal("<" + displayName + "> " + message);
 
-                                        // Simple fake "<name> msg" line broadcast to all players.
-                                        // This avoids the fragile chat pipeline types.
-                                        Component line = Component.literal("<" + targetName + "> " + message);
-                                        for (ServerPlayer viewer : playerList.getPlayers()) {
-                                            viewer.sendSystemMessage(line);
-                                        }
+                            LOGGER.info("[suedew][chat] {} as {}: \"{}\"",
+                                src.getTextName(), displayName, message);
 
-                                        return 1;
-                                    })
-                            )
+                            // IMPORTANT: go through the server broadcast path so Discord sees it
+                            playerList.broadcastSystemMessage(display, false);
+
+                            return 1;
+                        })
                     )
+                )
 
-                    // /sudo <player> command <...>
-                    .then(
-                        Commands.literal("command")
-                            .then(
-                                Commands.argument("command", StringArgumentType.greedyString())
-                                    .executes(ctx -> {
-                                        CommandSourceStack src = ctx.getSource();
-                                        MinecraftServer server = src.getServer();
-                                        PlayerList playerList = server.getPlayerList();
+                // /sudo <player> command <...>
+                .then(Commands.literal("command")
+                    .then(Commands.argument("command", StringArgumentType.greedyString())
+                        .executes(ctx -> {
+                            CommandSourceStack src = ctx.getSource();
+                            MinecraftServer server = src.getServer();
+                            PlayerList playerList = server.getPlayerList();
 
-                                        String targetName = StringArgumentType.getString(ctx, "player");
-                                        ServerPlayer target = playerList.getPlayerByName(targetName);
-                                        if (target == null) {
-                                            throw PLAYER_NOT_FOUND.create();
-                                        }
+                            String targetName = StringArgumentType.getString(ctx, "player");
+                            ServerPlayer target = playerList.getPlayerByName(targetName);
+                            if (target == null) {
+                                throw PLAYER_NOT_FOUND.create();
+                            }
 
-                                        String cmdPart = StringArgumentType.getString(ctx, "command");
-                                        String withSlash = cmdPart.startsWith("/") ? cmdPart : "/" + cmdPart;
+                            String cmd = StringArgumentType.getString(ctx, "command");
 
-                                        LOGGER.info(
-                                            "[sudo][cmd] {} as {}: \"{}\"",
-                                            src.getTextName(),
-                                            targetName,
-                                            withSlash
-                                        );
+                            LOGGER.info("[suedew][command] {} as {}: \"{}\"",
+                                src.getTextName(), target.getGameProfile().getName(), cmd);
 
-                                        // Run the command as the target player
-                                        server.getCommands().performPrefixedCommand(
-                                            target.createCommandSourceStack(),
-                                            withSlash
-                                        );
-
-                                        // Brigadier wants an int result; just return success
-                                        return 1;
-                                    })
-                            )
+                            // Run the command as the target player
+                            return server.getCommands()
+                                .performPrefixedCommand(target.createCommandSourceStack(), cmd);
+                        })
                     )
-            );
+                );
 
         dispatcher.register(root);
+    }
+
+    // Not wired into suggestions yet, but kept for future use
+    private static Collection<String> getPlayers(CommandSourceStack src) {
+        return src.getServer().getPlayerList().getPlayers().stream()
+            .map(p -> p.getGameProfile().getName())
+            .toList();
     }
 }
