@@ -1,13 +1,15 @@
 package com.example.suedew;
 
 import carpet.CarpetExtension;
-import carpet.script.CarpetExpression;
-import carpet.script.Context;
+import carpet.CarpetServer;
 import carpet.script.Expression;
+import carpet.script.ExpressionAPI;
+import carpet.script.context.Context;
+import carpet.script.exception.InternalExpressionException;
+import carpet.script.value.StringValue;
 import carpet.script.value.Value;
 import net.minecraft.network.chat.ChatType;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.PlayerChatMessage;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -17,36 +19,38 @@ public class SuedewCarpetExtension implements CarpetExtension {
 
     @Override
     public void onGameStarted() {
-        CarpetExpression.registerFunction(
+        ExpressionAPI.registerFunction(
             "suedew_chat",
             2,
-            this::suedewChat
+            (Context ctx, List<Value> args) -> {
+
+                String playerName = args.get(0).getString();
+                String message = args.get(1).getString();
+
+                MinecraftServer server = CarpetServer.minecraft_server;
+                if (server == null) {
+                    throw new InternalExpressionException("Server not available");
+                }
+
+                ServerPlayer player = server.getPlayerList().getPlayerByName(playerName);
+                if (player == null) {
+                    throw new InternalExpressionException("Player not found: " + playerName);
+                }
+
+                // Emit REAL signed player chat
+                player.getChatSession().sendChatMessage(
+                    Component.literal(message),
+                    ChatType.CHAT,
+                    player
+                );
+
+                return Value.TRUE;
+            }
         );
     }
 
-    private Value suedewChat(Context ctx, List<Value> args) {
-        MinecraftServer server = ctx.getServer();
-
-        if (server == null) {
-            return Value.NULL;
-        }
-
-        String playerName = args.get(0).getString();
-        String message = args.get(1).getString();
-
-        ServerPlayer player = server.getPlayerList().getPlayerByName(playerName);
-        if (player == null) {
-            return Value.NULL;
-        }
-
-        PlayerChatMessage chat = PlayerChatMessage.system(message);
-
-        server.getPlayerList().broadcastChatMessage(
-            chat,
-            player,
-            ChatType.bind(ChatType.CHAT, player)
-        );
-
-        return Value.TRUE;
+    @Override
+    public String name() {
+        return "suedew";
     }
 }
