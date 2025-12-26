@@ -6,16 +6,12 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
-import net.minecraft.network.chat.ChatType;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.PlayerChatMessage;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.PlayerList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.UUID;
 
 public class SudoCommand {
     private static final Logger LOGGER = LoggerFactory.getLogger("Suedew");
@@ -25,6 +21,7 @@ public class SudoCommand {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         LiteralArgumentBuilder<CommandSourceStack> root = Commands.literal("sudo")
+            // Same pattern as fortune: ops / gamemasters only
             .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
 
             // /sudo <player> chat <message>
@@ -48,14 +45,17 @@ public class SudoCommand {
                             LOGGER.info("[suedew][chat] {} as {}: \"{}\"",
                                 src.getTextName(), displayName, message);
 
-                            UUID uuid = target.getUUID();
-                            PlayerChatMessage chatMessage = PlayerChatMessage.unsigned(uuid, message);
+                            // Make it look like normal player chat: <name> message
+                            String tellraw = String.format(
+                                "/tellraw @a [\"\",{\"text\":\"<%s> %s\"}]",
+                                escape(displayName),
+                                escape(message)
+                            );
 
-                            CommandSourceStack asSource = target.createCommandSourceStack();
-                            ChatType.Bound bound = ChatType.bind(ChatType.CHAT, asSource);
-
-                            // Go through the real chat pipeline so listeners (Discord, etc.) see it
-                            playerList.broadcastChatMessage(chatMessage, asSource, bound);
+                            // Run the tellraw as the current command source (op / console)
+                            server.getCommands()
+                                .getDispatcher()
+                                .execute(tellraw.substring(1), src);
 
                             return 1;
                         })
@@ -77,19 +77,25 @@ public class SudoCommand {
                             }
 
                             String cmd = StringArgumentType.getString(ctx, "command");
-                            String displayName = target.getName().getString();
 
                             LOGGER.info("[suedew][command] {} as {}: \"{}\"",
-                                src.getTextName(), displayName, cmd);
+                                src.getTextName(), target.getName().getString(), cmd);
 
+                            // Execute the command as the target player
                             server.getCommands()
                                 .performPrefixedCommand(target.createCommandSourceStack(), cmd);
 
                             return 1;
                         })
                     )
-                );
+                )
+            );
 
         dispatcher.register(root);
+    }
+
+    private static String escape(String s) {
+        if (s == null) return "";
+        return s.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 }
