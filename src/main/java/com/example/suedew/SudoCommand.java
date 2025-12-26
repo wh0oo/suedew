@@ -5,8 +5,8 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.OutgoingChatMessage;
 import net.minecraft.network.chat.ChatType;
+import net.minecraft.network.chat.PlayerChatMessage;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -50,10 +50,13 @@ public final class SudoCommand {
                                             return 0;
                                         }
 
-                                        target.sendChatMessage(
-                                            OutgoingChatMessage.create(
+                                        PlayerChatMessage chat =
+                                            PlayerChatMessage.createUnsigned(
                                                 Component.literal(message)
-                                            ),
+                                            );
+
+                                        target.sendChatMessage(
+                                            chat,
                                             ChatType.bind(ChatType.CHAT, target),
                                             target.getUUID()
                                         );
