@@ -1,6 +1,5 @@
 package com.example.suedew;
 
-import com.mojang.authlib.GameProfile;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
@@ -14,8 +13,6 @@ import net.minecraft.server.players.PlayerList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Collection;
-
 public class SudoCommand {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("Suedew");
@@ -26,7 +23,7 @@ public class SudoCommand {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         LiteralArgumentBuilder<CommandSourceStack> root =
             Commands.literal("sudo")
-                // Ops / gamemasters only, same pattern as fortune
+                // ops / gamemasters only, same pattern as fortune
                 .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
 
                 // /sudo <player> chat <message>
@@ -48,8 +45,7 @@ public class SudoCommand {
                                             }
 
                                             String message = StringArgumentType.getString(ctx, "message");
-                                            GameProfile profile = target.getGameProfile();
-                                            String displayName = profile.getName(); // Mojang username
+                                            String displayName = target.getName().getString();
 
                                             // Make it look like normal player chat: <name> message
                                             Component display =
@@ -62,7 +58,7 @@ public class SudoCommand {
                                                 message
                                             );
 
-                                            // Go through the normal broadcast path (Discord bridge will see this)
+                                            // Go through the normal broadcast path (Discord bridge should see this)
                                             playerList.broadcastSystemMessage(display, false);
 
                                             return 1;
@@ -91,31 +87,23 @@ public class SudoCommand {
                                             LOGGER.info(
                                                 "[suedew][command] {} as {}: \"{}\"",
                                                 src.getTextName(),
-                                                target.getGameProfile().getName(),
+                                                target.getName().getString(),
                                                 cmd
                                             );
 
-                                            // Run the command as the target player
-                                            return server.getCommands()
+                                            // Run the command as the target player (void in 1.21.11)
+                                            server.getCommands()
                                                 .performPrefixedCommand(
                                                     target.createCommandSourceStack(),
                                                     cmd
                                                 );
+
+                                            return 1;
                                         })
                                 )
                         )
                 );
 
         dispatcher.register(root);
-    }
-
-    // Kept for potential future tab-complete integration
-    private static Collection<String> getPlayers(CommandSourceStack src) {
-        return src.getServer()
-            .getPlayerList()
-            .getPlayers()
-            .stream()
-            .map(p -> p.getGameProfile().getName())
-            .toList();
     }
 }
