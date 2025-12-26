@@ -13,6 +13,7 @@ base {
 repositories {
     mavenCentral()
     maven { url = 'https://maven.fabricmc.net/' }
+    maven { url = 'https://masa.dy.fi/maven' }   // ← REQUIRED FOR CARPET
 }
 
 dependencies {
