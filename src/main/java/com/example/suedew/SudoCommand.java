@@ -5,6 +5,7 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.network.chat.ChatType;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -15,7 +16,6 @@ public final class SudoCommand {
 
         LiteralArgumentBuilder<CommandSourceStack> root =
             Commands.literal("sudo")
-                // ops only
                 .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
 
                 .then(
@@ -53,8 +53,13 @@ public final class SudoCommand {
                                                 return 0;
                                             }
 
-                                            // Real player chat (<player> message)
-                                            target.chat(Component.literal(message));
+                                            // REAL signed player chat (<player> message)
+                                            target.sendChatMessage(
+                                                Component.literal(message),
+                                                ChatType.bind(ChatType.CHAT, target),
+                                                target.getUUID()
+                                            );
+
                                             return 1;
                                         })
                                 )
@@ -92,7 +97,6 @@ public final class SudoCommand {
                                                 return 0;
                                             }
 
-                                            // Execute as if the player typed it
                                             server.getCommands().performPrefixedCommand(
                                                 target.createCommandSourceStack(),
                                                 command
